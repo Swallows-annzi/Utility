@@ -1,0 +1,6 @@
+.idea
+.venv
+logs
+Output
+.git
+.gitattributes
