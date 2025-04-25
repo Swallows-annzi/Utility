@@ -24,7 +24,8 @@ helpStr = '''
     如果小于最大序列，则自动补全至最长序列长度
 
 --Mode (String) 设置使用模型
-    可选用模型: cnn
+    可选用模型: cnn、rnn、mlp、lstm、gcn、gnn、transformer
+    若选用多模型比较，则在模型名之间添加'+'例如'cnn+rnn+mlp'
     若不设置则默认选择'cnn'模型
 
 --Epochs (int)
@@ -120,14 +121,14 @@ def ReadSequences(InputFile):
         Logging.info(f"正常：成功读取序列文件 {InputFile}")
         Logging.info(f"正常：共读取到 {len(Pos_sequences)} 个正样本序列")
         Logging.info(f"正常：共读取到 {len(Neg_sequences)} 个负样本序列")
-        if len(Pos_sequences) != 0:
-            Logging.info("正样本序列：")
-            for i, seq in enumerate(Pos_sequences, 1):
-                Logging.info(f"序列 {i}: {seq}")
-        if len(Neg_sequences) != 0:
-            Logging.info("负样本序列：")
-            for i, seq in enumerate(Neg_sequences, 1):
-                Logging.info(f"序列 {i}: {seq}")
+        # if len(Pos_sequences) != 0:
+        #     Logging.info("正样本序列：")
+        #     for i, seq in enumerate(Pos_sequences, 1):
+        #         Logging.info(f"序列 {i}: {seq}")
+        # if len(Neg_sequences) != 0:
+        #     Logging.info("负样本序列：")
+        #     for i, seq in enumerate(Neg_sequences, 1):
+        #         Logging.info(f"序列 {i}: {seq}")
         Logging.info(f"文件读取耗时: {time.time() - TimeReadSequences:.4f} 秒")
         return Pos_sequences, Neg_sequences
 
@@ -167,14 +168,14 @@ def StandardizeSequences(sequences, paraDict):
     Logging.info(f"正常：所有序列已标准化为长度 {TargetLength}")
     Logging.info(f"正常：共读修改 {len(Pos_sequences)} 个正样本序列")
     Logging.info(f"正常：共读修改 {len(Neg_sequences)} 个负样本序列")
-    if len(Pos_sequences) != 0:
-        Logging.info("已修改正样本序列：")
-        for i, seq in enumerate(Pos_sequences, 1):
-            Logging.info(f"序列 {i}: {seq}")
-    if len(Neg_sequences) != 0:
-        Logging.info("已修改负样本序列：")
-        for i, seq in enumerate(Neg_sequences, 1):
-            Logging.info(f"序列 {i}: {seq}")
+    # if len(Pos_sequences) != 0:
+    #     Logging.info("已修改正样本序列：")
+    #     for i, seq in enumerate(Pos_sequences, 1):
+    #         Logging.info(f"序列 {i}: {seq}")
+    # if len(Neg_sequences) != 0:
+    #     Logging.info("已修改负样本序列：")
+    #     for i, seq in enumerate(Neg_sequences, 1):
+    #         Logging.info(f"序列 {i}: {seq}")
     Logging.info(f"统一长度耗时: {time.time() - TimeStandardizeSequences:.4f} 秒")
     return Pos_sequences, Neg_sequences
 
@@ -199,54 +200,65 @@ def One_Hot(sequences, paraDict, Logging):
     return torch.stack(encoded_sequences)
 
 #线型图生成
-def plot_training_progress(losses, accuracies, paraDict, Logging):
+def plot_training_progress(paraDict, graphs):
     """
-        losses: 每个epoch的损失值列表
-        accuracies: 每个epoch的准确率列表
-        save_path: 图表保存路径
+        graphs: 包含每个模型的训练损失和准确率数据的字典
     """
     try:
         import matplotlib.pyplot as plt
-        import numpy as np  # 新增导入，用于设置刻度
+        import numpy as np
 
-        mode = paraDict['Mode']
-        FlieOut = "Output/" + paraDict['UserName'] + "/" + mode + paraDict['FileOut'] + ".png"
+        modes = paraDict['Mode'].split('+')
+        FlieOut = "Output/" + paraDict['UserName'] + "/" + paraDict['FileOut'] + "/" + '-'.join(modes) + ".png"
 
         plt.rcParams['font.sans-serif'] = ['SimHei']
         plt.rcParams['axes.unicode_minus'] = False
         plt.figure(figsize=(12, 5))
-        
-        # 生成轮次列表
-        epochs = np.arange(1, len(losses) + 1)
-        
+
+        max_epochs = 0
         # 损失值子图
         plt.subplot(1, 2, 1)
-        plt.plot(epochs, losses, 'b-', label='训练损失', marker='o', markersize=4, 
-                markerfacecolor='white', markeredgecolor='blue', linewidth=2)
-        plt.title(mode + '训练损失变化曲线')
+        colors_loss = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
+        for i, mode in enumerate(modes):
+            if mode in graphs and graphs[mode]:
+                losses, _ = graphs[mode]
+                epochs = np.arange(1, len(losses) + 1)
+                max_epochs = max(max_epochs, len(losses))
+                plt.plot(epochs, losses, f'{colors_loss[i % len(colors_loss)]}-', label=f'{mode}', marker='o', markersize=4, 
+                        markerfacecolor='white', markeredgecolor=colors_loss[i % len(colors_loss)], linewidth=2)
+        epochs = np.arange(1, max_epochs + 1)
+        plt.title('训练损失变化曲线')
         plt.xlabel('训练次数')
-        plt.xticks(epochs)  # 设置 x 轴刻度为整数
+        plt.xticks(epochs)
         plt.ylabel('损失值')
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.legend()
-        
+
         # 准确率子图
         plt.subplot(1, 2, 2)
-        plt.plot(epochs, accuracies, 'r-', label='训练准确率', marker='o', markersize=4,
-                markerfacecolor='white', markeredgecolor='red', linewidth=2)
-        plt.title(mode + '训练准确率变化曲线')
+        colors_acc = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
+        max_epochs = 0
+        for i, mode in enumerate(modes):
+            if mode in graphs and graphs[mode]:
+                _, accuracies = graphs[mode]
+                epochs = np.arange(1, len(accuracies) + 1)
+                max_epochs = max(max_epochs, len(accuracies))
+                plt.plot(epochs, accuracies, f'{colors_acc[i % len(colors_acc)]}-', label=f'{mode}', marker='o', markersize=4,
+                        markerfacecolor='white', markeredgecolor=colors_acc[i % len(colors_acc)], linewidth=2)
+        epochs = np.arange(1, max_epochs + 1)
+        plt.title('训练准确率变化曲线')
         plt.xlabel('训练次数')
-        plt.xticks(epochs)  # 设置 x 轴刻度为整数
+        plt.xticks(epochs)
         plt.ylabel('准确率 (%)')
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.legend()
-        
+
         plt.tight_layout()
         plt.savefig(FlieOut, dpi=300, bbox_inches='tight')
         plt.close()
-        
+
         Logging.info(f"正常：训练进度图已保存至 {FlieOut}")
-        
+
     except ImportError:
         Logging.info("警告：缺少matplotlib库，无法生成训练进度图表")
     except Exception as e:
@@ -319,19 +331,121 @@ def main():
         Logging.info(f"总运行时间: {time.time() - TimeStart:.4f} 秒")
         sys.exit(1)
 
+    modes = paraDict['Mode'].split('+')
+
+    if any(str not in ['cnn', 'rnn', 'mlp', 'lstm', 'gcn', 'gnn', 'transformer'] for str in modes):
+        Logging.info("错误：未知模型")
+        Logging.info("使用 -h 或 --help 查看帮助文档")
+        Logging.info("================程序运行结束================")
+        Logging.info(f"总运行时间: {time.time() - TimeStart:.4f} 秒")
+        sys.exit(1)
+
     #读取序列并标准化序列长度
     sequences = StandardizeSequences(ReadSequences(paraDict['FileIn']), paraDict, )
-    
-    if not os.path.exists('Output/' + paraDict['UserName']):
-        os.makedirs('Output/' + paraDict['UserName'])
 
-    if paraDict['Mode'] in "cnn":
+    if paraDict['Function'] not in "Eval" and paraDict['Function'] not in "Train":
+        Logging.info("错误：未知功能")
+        Logging.info("使用 -h 或 --help 查看帮助文档")
+        Logging.info("================程序运行结束================")
+        Logging.info(f"总运行时间: {time.time() - TimeStart:.4f} 秒")
+        sys.exit(1)
+    
+    if not os.path.exists('Output/' + paraDict['UserName'] + '/' + paraDict['FileOut']):
+        os.makedirs('Output/' + paraDict['UserName'] + '/' + paraDict['FileOut'])
+    
+    # 提取的代码插入位置
+    Pos_sequences, Neg_sequences = sequences
+    import torch
+    # if len(Pos_sequences) != 0 and len(Neg_sequences) != 0:
+    Pos_sequences = One_Hot(Pos_sequences, paraDict, Logging)
+    Neg_sequences = One_Hot(Neg_sequences, paraDict, Logging)
+    if isinstance(Pos_sequences, list):
+        Pos_sequences = torch.stack(Pos_sequences) if Pos_sequences else torch.tensor([])
+    if isinstance(Neg_sequences, list):
+        Neg_sequences = torch.stack(Neg_sequences) if Neg_sequences else torch.tensor([])
+
+    all_sequences = torch.cat((Pos_sequences, Neg_sequences), dim=0)
+    all_labels = torch.cat((torch.ones(Pos_sequences.size(0)), torch.zeros(Neg_sequences.size(0))), dim=0)
+    Logging.info("正常：已合并正负样本")
+
+    # elif len(Pos_sequences) == 0 and len(Neg_sequences) != 0:
+    #     Neg_sequences = One_Hot(Neg_sequences, paraDict, Logging)
+    #     if isinstance(Neg_sequences, list):
+    #         Neg_sequences = torch.stack(Neg_sequences) if Neg_sequences else torch.tensor([])
+    #
+    #     all_sequences = torch.cat(Neg_sequences, dim=0)
+    #     all_labels = torch.cat(torch.zeros(Neg_sequences.size(0)), dim=0)
+    #     Logging.info("正常：已合并正负样本")
+    #
+    # elif len(Pos_sequences) != 0 and len(Neg_sequences) == 0:
+    #     Pos_sequences = One_Hot(Pos_sequences, paraDict, Logging)
+    #     if isinstance(Pos_sequences, list):
+    #         Pos_sequences = torch.stack(Pos_sequences) if Pos_sequences else torch.tensor([])
+    #
+    #     all_sequences = torch.cat(Pos_sequences, dim=0)
+    #     all_labels = torch.cat(torch.ones(Pos_sequences.size(0)), dim=0)
+    #     Logging.info("正常：已合并正负样本")
+
+    
+    modes = paraDict['Mode'].split('+')
+
+    graphs = {
+        'cnn': "",
+        'rnn': "",
+        'mlp': "",
+        'lstm': "",
+        'gcn': "",
+        'gnn': "",
+        'transformer': ""
+    }
+    
+    if "cnn" in modes:
         if paraDict['Function'] in "Train":
             from mode.cnn.cnn import cnn_train
-            cnn_train(paraDict, sequences, Logging, TimeStart)
+            graphs['cnn'] = cnn_train(paraDict, all_sequences, all_labels, Logging, TimeStart)
         if paraDict['Function'] in "Eval":
             from mode.cnn.cnn import cnn_eval
-            cnn_eval(paraDict, sequences, Logging, TimeStart)
+            cnn_eval(paraDict, all_sequences, all_labels, Logging, TimeStart)
+    if "rnn" in modes:
+        if paraDict['Function'] in "Train":
+            from mode.rnn.rnn import rnn_train
+            graphs['rnn'] = rnn_train(paraDict, all_sequences, all_labels, Logging, TimeStart)
+        if paraDict['Function'] in "Eval":
+            from mode.rnn.rnn import rnn_eval
+            rnn_eval(paraDict, all_sequences, all_labels, Logging, TimeStart)
+    if "mlp" in modes:
+        if paraDict['Function'] in "Train":
+            from mode.mlp.mlp import mlp_train
+            graphs['mlp'] = mlp_train(paraDict, all_sequences, all_labels, Logging, TimeStart)
+        if paraDict['Function'] in "Eval":
+            from mode.mlp.mlp import mlp_eval
+            mlp_eval(paraDict, all_sequences, all_labels, Logging, TimeStart)
+    if "lstm" in modes:
+        if paraDict['Function'] in "Train":
+            from mode.lstm.lstm import lstm_train
+            graphs['lstm'] = lstm_train(paraDict, all_sequences, all_labels, Logging, TimeStart)
+        if paraDict['Function'] in "Eval":
+            from mode.lstm.lstm import lstm_eval
+            lstm_eval(paraDict, all_sequences, all_labels, Logging, TimeStart)
+    if "transformer" in modes:
+        if paraDict['Function'] in "Train":
+            from mode.transformer.transformer import transformer_train
+            graphs['transformer'] = transformer_train(paraDict, all_sequences, all_labels, Logging, TimeStart)
+        if paraDict['Function'] in "Eval":
+            from mode.transformer.transformer import transformer_eval
+            transformer_eval(paraDict, all_sequences, all_labels, Logging, TimeStart)
+    # if "gcn" in modes:
+    #     if paraDict['Function'] in "Train":
+    #         from mode.gcn.gcn import gcn_train
+    #     if paraDict['Function'] in "Eval":
+    #         from mode.gcn.gcn import gcn_eval
+    # if "gnn" in modes:
+    #     if paraDict['Function'] in "Train":
+    #         from mode.gnn.gnn import gnn_train
+    #     if paraDict['Function'] in "Eval":
+    #         from mode.gnn.gnn import gnn_eval
+
+    plot_training_progress(paraDict, graphs)
 
 if __name__ == '__main__':
     TimeStart = time.time()
