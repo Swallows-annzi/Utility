@@ -16,15 +16,6 @@ class MLPACP(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        """
-        前向传播函数。
-
-        参数:
-        x (torch.Tensor): 输入数据。
-
-        返回:
-        torch.Tensor: 模型输出。
-        """
         x = x.view(x.size(0), -1)  # 展平输入数据
         x = self.relu(self.fc1(x))
         x = self.sigmoid(self.fc2(x))
@@ -168,7 +159,6 @@ def mlp_eval(paraDict, all_sequences, all_labels, Logging, TimeStart):
 
         test_loss = running_loss / len(test_loader)
         test_accuracy = 100 * correct / total
-        # 计算 AUC
         auc = roc_auc_score(all_true_labels, all_predicted_scores)
         Logging.info(f"测试丢失率: {test_loss:.4f}, 测试准确率: {test_accuracy:.2f}%")
         Logging.info(f"真阳性 (TP): {tp}")

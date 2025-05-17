@@ -39,15 +39,6 @@ class TransformerACP(nn.Module):
         return pe.unsqueeze(0)
 
     def forward(self, x):
-        """
-        前向传播函数。
-
-        参数:
-        x (torch.Tensor): 输入数据。
-
-        返回:
-        torch.Tensor: 模型输出。
-        """
         x = self.embedding(x.transpose(1, 2))
         x = x + self.positional_encoding[:, :x.size(1), :].to(x.device)
         x = self.transformer_encoder(x.transpose(0, 1))

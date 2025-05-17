@@ -62,6 +62,14 @@
             >
               信息
             </el-button>
+            <el-button 
+              type="danger" 
+              size="small" 
+              class="beautified-button"
+              @click="deleteRecord(scope.row.time)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -176,7 +184,7 @@
 </template>
 
 <script setup>
-import { ElMessage, ElCard, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn, ElButton, ElDialog } from 'element-plus';
+import { ElMessage, ElCard, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn, ElButton, ElDialog, ElMessageBox } from 'element-plus';
 import { ref, computed } from 'vue';
 import axios from 'axios';
 
@@ -432,6 +440,46 @@ const getExistingModelsData = () => {
   });
 
   return existingModelsData;
+};
+
+const deleteRecord = async (fileout) => {
+  if (!username.value) {
+    ElMessage.warning('请输入用户名');
+    return;
+  }
+  try {
+    const confirmDelete = await ElMessageBox.confirm(
+      '确定要删除这条记录吗？',
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+    if (confirmDelete) {
+      const url = `http://localhost:8001/api/removeData`;
+      const data = {
+        username: username.value,
+        fileout: fileout
+      };
+      const response = await axios.post(url, data);
+      ElMessage.success(response.data.message);
+      await fetchRecords();
+    }
+  } catch (error) {
+    if (error.type === ElMessageBox.ERROR_CANCEL_ACTION) {
+      return;
+    }
+    if (error.response) {
+      ElMessage.error(`删除记录失败，状态码: ${error.response.status}，错误信息: ${error.response.data.message || '未知错误'}，请稍后重试`);
+    } else if (error.request) {
+      ElMessage.error('删除记录失败，未收到服务器响应，请检查网络连接，稍后重试');
+    } else {
+      ElMessage.error(`删除记录失败，错误信息: ${error.message}，请稍后重试`);
+    }
+    console.error('删除记录失败:', error);
+  }
 };
 </script>
 

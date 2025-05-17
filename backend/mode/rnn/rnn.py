@@ -8,15 +8,6 @@ from sklearn.metrics import roc_auc_score
 
 # 定义RNN模型
 class RNNACP(nn.Module):
-    """
-    定义基于LSTM的循环神经网络模型。
-
-    参数:
-    input_size (int): 输入数据的特征维度。
-    hidden_size (int): 隐藏层的维度。
-    num_layers (int): LSTM的层数。
-    sequence_length (int): 输入序列的长度。
-    """
     def __init__(self, input_size, hidden_size, num_layers, sequence_length):
         super(RNNACP, self).__init__()
         self.hidden_size = hidden_size
@@ -26,15 +17,6 @@ class RNNACP(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        """
-        前向传播函数。
-
-        参数:
-        x (torch.Tensor): 输入数据。
-
-        返回:
-        torch.Tensor: 模型输出。
-        """
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device) 
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         
@@ -174,7 +156,6 @@ def rnn_eval(paraDict, all_sequences, all_labels, Logging, TimeStart):
 
         test_loss = running_loss / len(test_loader)
         test_accuracy = 100 * correct / total
-        # 计算 AUC
         auc = roc_auc_score(all_true_labels, all_predicted_scores)
         Logging.info(f"测试丢失率: {test_loss:.4f}, 测试准确率: {test_accuracy:.2f}%")
         Logging.info(f"真阳性 (TP): {tp}")

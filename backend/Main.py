@@ -132,6 +132,7 @@ def ReadSequences(InputFile):
         #     Logging.info("负样本序列：")
         #     for i, seq in enumerate(Neg_sequences, 1):
         #         Logging.info(f"序列 {i}: {seq}")
+        Logging.info(f"类别分布 - 正样本: {len(Pos_sequences)}, 负样本: {len(Neg_sequences)}, 总样本: {len(Pos_sequences) + len(Neg_sequences)}, 正负样本比重: {len(Pos_sequences) / len(Neg_sequences):.2f}(正/负)样本比例")
         Logging.info(f"文件读取耗时: {time.time() - TimeReadSequences:.4f} 秒")
         return Pos_sequences, Neg_sequences
 
@@ -164,7 +165,7 @@ def StandardizeSequences(sequences, paraDict):
     # 使用目标长度
     TargetLength = max(SequencesMaxLength, MaxLength)
     
-    # 标准化序列长度
+    # 统一序列长度
     Pos_sequences = [line.ljust(TargetLength, VoidDict) for line in Pos_sequences]
     Neg_sequences = [line.ljust(TargetLength, VoidDict) for line in Neg_sequences]
     
@@ -270,8 +271,7 @@ def plot_training_progress(paraDict, graphs):
 
 # 处理与合并正负样本
 def sample(paraDict, FileIn):
-    # 读取序列并标准化序列长度
-    sequences = StandardizeSequences(ReadSequences(FileIn), paraDict)
+    sequences = ReadSequences(FileIn)
     Pos_sequences, Neg_sequences = sequences
 
     import torch
@@ -327,11 +327,10 @@ def cmc(paraDict, TrainGraphs, EvalGraphs):
     except Exception as e:
         Logging.info(f"错误：保存评估指标时发生错误 - {str(e)}")
 
-# 分割数据集，复制文件并创建测试集
+# 分割数据集
 def SplitApartData(paraDict):
     input_file = paraDict['FileIn'] + ".fasta"
     output_dir = os.path.join('backend/Output', paraDict['UserName'], paraDict['FileOut'])
-    # 复制原始文件到 Output 文件夹
     import shutil
     shutil.copy(input_file, os.path.join(output_dir, os.path.basename(input_file)))
     
@@ -340,28 +339,41 @@ def SplitApartData(paraDict):
         lines = f.readlines()
     
     # 按序列分割数据
-    sequences = []
+    Pos_sequences = []
+    Neg_sequences = []
     i = 0
     while i < len(lines):
         if lines[i].startswith('>'):
             header = lines[i].strip()
             seq = lines[i + 1].strip()
-            sequences.append((header, seq))
+            if "NON" in header:
+                Neg_sequences.append((header, seq))
+            else:
+                Pos_sequences.append((header, seq))
             i += 2
         else:
             i += 1
     
+    # 统一序列长度
+    sequences = ([seq for _, seq in Pos_sequences], [seq for _, seq in Neg_sequences])
+    standardized_sequences = StandardizeSequences(sequences, paraDict)
+    standardized_Pos_sequences = standardized_sequences[0]
+    standardized_Neg_sequences = standardized_sequences[1]
+    
+    standardized_sequences =    [(Pos_sequences[i][0], seq) for i, seq in enumerate(standardized_Pos_sequences)] + \
+                                [(Neg_sequences[i][0], seq) for i, seq in enumerate(standardized_Neg_sequences)]
+    
     # 随机打乱序列
     import random
-    random.shuffle(sequences)
+    random.shuffle(standardized_sequences)
     
     # 计算测试集数量
     test_ratio = float(paraDict['Test'])
-    test_size = int(len(sequences) * test_ratio)
+    test_size = int(len(standardized_sequences) * test_ratio)
     
     # 分割训练集和测试集
-    test_sequences = sequences[:test_size]
-    train_sequences = sequences[test_size:]
+    test_sequences = standardized_sequences[:test_size]
+    train_sequences = standardized_sequences[test_size:]
     
     # 写入测试集文件
     test_file_path = os.path.join(output_dir, "Input-Test.fasta")
@@ -370,7 +382,7 @@ def SplitApartData(paraDict):
             f.write(header + '\n')
             f.write(seq + '\n')
     
-    # 写入更新后的训练集文件
+    # 写入训练集文件
     train_file_path = os.path.join(output_dir, "Input-Train.fasta")
     with open(train_file_path, 'w', encoding='utf-8') as f:
         for header, seq in train_sequences:
@@ -575,3 +587,7 @@ if __name__ == '__main__':
     ModesTest(paraDict, TrainGraphs)
     Logging.info("================程序结束运行================")
     Logging.info(f"总运行时间: {time.time() - TimeStart:.4f} 秒")
+    log_file = 'backend/logs/' + paraDict['FileOut'] + '.log'
+    log_dir = os.path.join('backend/Output', paraDict['UserName'], paraDict['FileOut'])
+    import shutil
+    shutil.copy(log_file, os.path.join(log_dir, os.path.basename(log_file)))

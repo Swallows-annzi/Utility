@@ -8,13 +8,6 @@ from sklearn.metrics import roc_auc_score
 
 # 定义CNN模型
 class CNNACP(nn.Module):
-    """
-    定义一维卷积神经网络模型。
-
-    参数:
-    input_channels (int): 输入数据的通道数。
-    sequence_length (int): 输入序列的长度。
-    """
     def __init__(self, input_channels, sequence_length):
         super(CNNACP, self).__init__()
         self.conv1 = nn.Conv1d(input_channels, 16, kernel_size=3, padding=1)
@@ -29,15 +22,6 @@ class CNNACP(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        """
-        前向传播函数。
-
-        参数:
-        x (torch.Tensor): 输入数据。
-
-        返回:
-        torch.Tensor: 模型输出。
-        """
         x = self.pool1(self.relu1(self.conv1(x)))
         x = self.pool2(self.relu2(self.conv2(x)))
         x = x.view(x.size(0), -1)

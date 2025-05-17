@@ -75,6 +75,31 @@ async def get_files(username: str):
         print(f'获取用户文件夹时出现错误: {e}')
         return []
 
+# 删除记录的api
+from pydantic import BaseModel
+
+class RemoveDataRequest(BaseModel):
+    username: str
+    fileout: str
+
+@app.post("/api/removeData")
+async  def remove_data(request: RemoveDataRequest):
+    try:
+        username = request.username
+        fileout = request.fileout
+        import shutil
+        file_path = os.path.join("backend", "Output", username, fileout)
+        if os.path.exists(file_path):
+            shutil.rmtree(file_path)
+            print(f"已删除文件夹：{file_path}")
+            return {"message": "记录删除成功"}
+        else:
+            print(f"文件夹不存在：{file_path}")
+            return {"message": "记录不存在", "status": 404}, 404
+    except Exception as e:
+        print(f'删除记录时出现错误: {e}')
+        return {"message": f"删除记录时出错: {str(e)}", "status": 500}, 500
+
 # 发送单项训练记录的API
 @app.get("/api/getData")
 async def get_data(username: str, fileout: str):
